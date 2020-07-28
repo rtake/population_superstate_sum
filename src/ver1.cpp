@@ -33,7 +33,6 @@ double convert_double(string s) {
 }
 
 
-
 int main(int argc, char *argv[]) {
   int eqcnt=0, ssnum=0;
   double charge_threshold = 0.5;
@@ -43,28 +42,27 @@ int main(int argc, char *argv[]) {
   vector<EQInfo> eqs;
   SSInfo *sss;
 
+  // input from command line arguments
   for(int i=0;i<argc;i++) {
     if( strstr(argv[i],"sim.log") ) { sprintf(simlog,"%s",argv[i]); }
     else if( strstr(argv[i],"_EQ_popl.rrm") ) { sprintf(eqpopl,"%s",argv[i]); }
     else if( strstr(argv[i],".frg") ) { sprintf(eqfrg,"%s",argv[i]); }
     else if( strstr(argv[i],".popl") ) { sprintf(eqcharge,"%s",argv[i]); }
-  }
+  } 
 
-/*
-  sprintf(simlog,"cys_ch5_rcmconly_50000k_10+16s_sim.log");
-  sprintf(eqpopl,"cys_ch5_rcmconly_50000k_10+16s_EQ_popl.rrm","r");
-  sprintf(eqfrg,"list.frg");
-  sprintf(eqcharge,"list.popl");
-*/
-
+  // check input file name
+  /*
   cout << simlog << endl; 
   cout << eqpopl << endl;
   cout << eqfrg << endl;
   cout << eqcharge << endl;
+  */
 
+  // output filename
   sprintf(out,"%s.ss_sum",simlog);
   fp_out = fopen(out,"w");
 
+  // load population of EQ
   fp = fopen(eqpopl,"r");
   for(eqcnt=0;;eqcnt++) {
     if( !fgets(line,256,fp) ) { break; }
@@ -82,9 +80,9 @@ int main(int argc, char *argv[]) {
   }
   fclose(fp);
 
+  // load mass and charge for fragments included each EQ
   fp0 = fopen(eqfrg,"r");
   fp1 = fopen(eqcharge,"r");
-
   for(int i=0;i<eqcnt;i++) {
     fgets(line0,256,fp0);
     fgets(line1,256,fp1);
@@ -103,10 +101,10 @@ int main(int argc, char *argv[]) {
   fclose(fp0);
   fclose(fp1);
 
+  // count number of Super-States
   fp = fopen(simlog,"r");
-
   while( fgets(line,256,fp) ) {
-    if( strstr(line,"Five representative EQs in SS") ) { sscanf(line,"Five representative EQs in SS   %d\n", &ssnum); } // count number of Super-States
+    if( strstr(line,"Five representative EQs in SS") ) { sscanf(line,"Five representative EQs in SS   %d\n", &ssnum); } 
 
     if( strstr(line,"Coefficients of EQs") ) {
       fgets(line,256,fp);
@@ -114,9 +112,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // Initialize population of each SuperState
   sss = new SSInfo [++ssnum];
   for(int i=0;i<ssnum;i++) { sss[i].popl = 0; }
 
+  // load attribute coefficient for EQ
   for(int i=0;i<eqcnt;i++) {
     int sscnt=0;
 
@@ -139,9 +139,37 @@ int main(int argc, char *argv[]) {
       if( string(line) == "\n" ) { break; }
     }
   }
-
   fclose(fp);
 
+  // check m/z for all EQs
+  for(int i=0;i<eqcnt;i++) {
+    for(int j=0;j<(int)eqs[i].mzpair.size();j++) {
+      pair<int,double> p = eqs[i].mzpair[j];
+      if(p.second > charge_threshold) { eqs[i].moverz.push_back(p.first/((int)(p.second+0.5))); }
+    }
+  }
+
+  // specify m/z for each SS
+  for(int i=0;i<ssnum;i++) {
+    set<int> st_moverz; // store m/z included in the SS
+    
+    // check m/z for all fragments
+    for(map<int,double>::iterator itr=sss[i].eq.begin();itr!=sss[i].eq.end();itr++) {
+      for(int j=0;j<(int)eqs[itr->first].mzpair.size();j++) {
+        pair<int,double> p = eqs[itr->first].mzpair[j];
+
+        if(p.second > charge_threshold) { st_moverz.insert( p.first/((int)(p.second + 0.5)) ); } // add moverz
+      }
+    } 
+
+    fprintf(fp_out,"SS-%d : %17.12lf, ", i, sss[i].popl);
+    for(set<int>::iterator itr=st_moverz.begin();itr!=st_moverz.end();itr++) { fprintf(fp_out, "%d, ", *itr); }
+    fprintf(fp_out,"\n");
+  } 
+ 
+  fclose(fp_out);
+
+  // printf debag
   /*  
   for(int i=0;i<eqcnt;i++) {
     for(int j=0;j<(int)eqs[i].ss.size();j++) {
@@ -150,7 +178,6 @@ int main(int argc, char *argv[]) {
     printf("\n");
   } // EQ
   */
-
   /*
   for(int i=0;i<eqcnt;i++) {
     for(int j=0;j<(int)eqs[i].ss.size();j++) {
@@ -159,14 +186,6 @@ int main(int argc, char *argv[]) {
     printf("\n");
   } // coeff
   */
-
-  for(int i=0;i<eqcnt;i++) {
-    for(int j=0;j<(int)eqs[i].mzpair.size();j++) {
-      pair<int,double> p = eqs[i].mzpair[j];
-      if(p.second > charge_threshold) { eqs[i].moverz.push_back(p.first/((int)(p.second+0.5))); }
-    }
-  }
-
   /*
   for(int i=0;i<eqcnt;i++) {
     for(int j=0;j<(int)eqs[i].ss.size();j++) {
@@ -178,26 +197,6 @@ int main(int argc, char *argv[]) {
     printf("\n");
   } // coeff
   */
-
-  for(int i=0;i<ssnum;i++) {
-    set<int> st_moverz; // store m/z included in the SS
-    
-    for(map<int,double>::iterator itr=sss[i].eq.begin();itr!=sss[i].eq.end();itr++) {
-      for(int j=0;j<(int)eqs[itr->first].mzpair.size();j++) {
-        pair<int,double> p = eqs[itr->first].mzpair[j];
-
-        if(p.second > charge_threshold) { st_moverz.insert( p.first/((int)(p.second + 0.5)) ); } // add moverz
-      }
-    } // for each EQ include in the SS, ...
-
-    
-    fprintf(fp_out,"SS-%d : %17.12lf, ", i, sss[i].popl);
-    for(set<int>::iterator itr=st_moverz.begin();itr!=st_moverz.end();itr++) { fprintf(fp_out, "%d, ", *itr); }
-    fprintf(fp_out,"\n");
-    
-  } 
- 
-  fclose(fp_out);
 
   return 0;
 }
