@@ -34,7 +34,7 @@ double convert_double(string s) {
 
 
 int main(int argc, char *argv[]) {
-  int eqcnt=0, ssnum=0, max_moverz=1000;
+  int eqcnt=0, ssnum=0, max_moverz=1000, notdc_moverz=0;
   double charge_threshold = 0.5;
   char out[270], base[256], simlog[256], eqpopl[256], eqfrg[256], eqcharge[256], line[256], line0[256], line1[256];
   FILE *fp, *fp0, *fp1, *fp_out;
@@ -51,12 +51,12 @@ int main(int argc, char *argv[]) {
   } 
 
   // check input file name
-  /*
+  ///*
   cout << simlog << endl; 
   cout << eqpopl << endl;
   cout << eqfrg << endl;
   cout << eqcharge << endl;
-  */
+  //*/
 
   // output filename
   sprintf(out,"%s.ss_sum",simlog);
@@ -145,7 +145,10 @@ int main(int argc, char *argv[]) {
   for(int i=0;i<eqcnt;i++) {
     for(int j=0;j<(int)eqs[i].mzpair.size();j++) {
       pair<int,double> p = eqs[i].mzpair[j];
-      if(p.second > charge_threshold) { eqs[i].moverz.push_back(p.first/((int)(p.second+0.5))); }
+      if(p.second > charge_threshold) {
+        eqs[i].moverz.push_back(p.first/((int)(p.second+0.5)));
+        notdc_moverz = max(notdc_moverz,p.first/((int)(p.second+0.5)));
+      }
     }
   }
 
@@ -170,21 +173,23 @@ int main(int argc, char *argv[]) {
   */
  
   for(int i=0;i<ssnum;i++) {
-    double poplsum=0;
+    double poplsum=0, poplsum_notdc=0;
     vector<double> poplsum_moverz(max_moverz,0); // store population for all m/z
 
     for(map<int,double>::iterator itr=sss[i].eq.begin();itr!=sss[i].eq.end();itr++) {
       EQInfo eq = eqs[itr->first]; // current EQ
       for(int j=0;j<(int)eq.moverz.size();j++) {
-        poplsum_moverz[eq.moverz[j]] += eq.popl*itr->second;
+        poplsum_moverz[eq.moverz[j]-1] += eq.popl*itr->second;
         poplsum += eq.popl*itr->second; // weighted sum
       }
     } // for all EQs attribute to the SS
 
-    for(int j=0;j<max_moverz;j++) { poplsum_moverz[j] /= poplsum; }
+    poplsum_notdc = poplsum_moverz[notdc_moverz-1];
+    poplsum_moverz[notdc_moverz-1] = 0;
+    for(int j=0;j<notdc_moverz;j++) { poplsum_moverz[j] = (poplsum_moverz[j]/(poplsum-poplsum_notdc))*poplsum; }
 
     fprintf(fp_out,"%d,",i); // number of SuperState
-    for(int j=0;j<max_moverz;j++) { fprintf(fp_out,"%lf, ",poplsum_moverz[j]); }
+    for(int j=0;j<notdc_moverz;j++) { fprintf(fp_out,"%lf, ",poplsum_moverz[j]); }
     fprintf(fp_out,"\n");
   }
 
