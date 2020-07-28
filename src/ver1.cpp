@@ -34,7 +34,7 @@ double convert_double(string s) {
 
 
 int main(int argc, char *argv[]) {
-  int eqcnt=0, ssnum=0;
+  int eqcnt=0, ssnum=0, max_moverz=1000;
   double charge_threshold = 0.5;
   char out[270], base[256], simlog[256], eqpopl[256], eqfrg[256], eqcharge[256], line[256], line0[256], line1[256];
   FILE *fp, *fp0, *fp1, *fp_out;
@@ -150,6 +150,7 @@ int main(int argc, char *argv[]) {
   }
 
   // specify m/z for each SS
+  /*
   for(int i=0;i<ssnum;i++) {
     set<int> st_moverz; // store m/z included in the SS
     
@@ -165,8 +166,28 @@ int main(int argc, char *argv[]) {
     fprintf(fp_out,"SS-%d : %17.12lf, ", i, sss[i].popl);
     for(set<int>::iterator itr=st_moverz.begin();itr!=st_moverz.end();itr++) { fprintf(fp_out, "%d, ", *itr); }
     fprintf(fp_out,"\n");
-  } 
+  }
+  */
  
+  for(int i=0;i<ssnum;i++) {
+    double poplsum=0;
+    vector<double> poplsum_moverz(max_moverz,0); // store population for all m/z
+
+    for(map<int,double>::iterator itr=sss[i].eq.begin();itr!=sss[i].eq.end();itr++) {
+      EQInfo eq = eqs[itr->first]; // current EQ
+      for(int j=0;j<(int)eq.moverz.size();j++) {
+        poplsum_moverz[eq.moverz[j]] += eq.popl*itr->second;
+        poplsum += eq.popl*itr->second; // weighted sum
+      }
+    } // for all EQs attribute to the SS
+
+    for(int j=0;j<max_moverz;j++) { poplsum_moverz[j] /= poplsum; }
+
+    fprintf(fp_out,"%d,",i); // number of SuperState
+    for(int j=0;j<max_moverz;j++) { fprintf(fp_out,"%lf, ",poplsum_moverz[j]); }
+    fprintf(fp_out,"\n");
+  }
+
   fclose(fp_out);
 
   // printf debag
