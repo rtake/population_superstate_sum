@@ -178,15 +178,20 @@ int main(int argc, char *argv[]) {
 
     for(map<int,double>::iterator itr=sss[i].eq.begin();itr!=sss[i].eq.end();itr++) {
       EQInfo eq = eqs[itr->first]; // current EQ
+
       for(int j=0;j<(int)eq.moverz.size();j++) {
         poplsum_moverz[eq.moverz[j]-1] += eq.popl*itr->second;
         poplsum += eq.popl*itr->second; // weighted sum
       }
+
     } // for all EQs attribute to the SS
 
     poplsum_notdc = poplsum_moverz[notdc_moverz-1];
-    poplsum_moverz[notdc_moverz-1] = 0;
-    for(int j=0;j<notdc_moverz;j++) { poplsum_moverz[j] = (poplsum_moverz[j]/(poplsum-poplsum_notdc))*poplsum; }
+
+    if(poplsum_notdc < poplsum) {
+      poplsum_moverz[notdc_moverz-1] -= poplsum_notdc;
+      for(int j=0;j<notdc_moverz;j++) { poplsum_moverz[j] = (poplsum_moverz[j]/(poplsum-poplsum_notdc))*poplsum; }
+    }
 
     fprintf(fp_out,"%d,",i); // number of SuperState
     for(int j=0;j<notdc_moverz;j++) { fprintf(fp_out,"%lf, ",poplsum_moverz[j]); }
